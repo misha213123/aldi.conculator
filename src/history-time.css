@@ -1,0 +1,51 @@
+.history-time-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin: 16px 0;
+}
+
+.history-time-grid article {
+  min-width: 0;
+  padding: 13px 10px;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  border-radius: 16px;
+  background: rgba(37, 99, 235, 0.055);
+  text-align: left;
+}
+
+.history-time-grid span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted, #64748b);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.history-time-grid b {
+  display: block;
+  overflow: hidden;
+  color: var(--text, #0f172a);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 390px) {
+  .history-time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .history-time-grid article {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .history-time-grid span {
+    margin: 0;
+  }
+}
