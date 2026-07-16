@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
-import { defaultRates, emptyQuantities } from '../data/departments';
+import { defaultRates, emptyQuantities, departments } from '../data/departments';
 import { calculateShift, dateKey, getWeekRange, monthKey } from '../utils/calculations';
 
 const read = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 };
+
+const quantitiesFromEntry = (entry = {}) => Object.fromEntries(
+  departments.map((department) => [department.id, Number(entry[department.id] || 0)]),
+);
 
 export function useShiftly() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -12,14 +16,20 @@ export function useShiftly() {
   const [entries, setEntries] = useState(() => read('shiftly-entries', read('aldi-entries', {})));
   const [goal, setGoalState] = useState(() => read('shiftly-goal', 7000));
   const key = dateKey(selectedDate);
-  const [draft, setDraft] = useState(() => entries[key] || emptyQuantities());
+  const [draft, setDraft] = useState(() => quantitiesFromEntry(entries[key] || emptyQuantities()));
 
   const saveEntries = (next) => {
     setEntries(next);
     localStorage.setItem('shiftly-entries', JSON.stringify(next));
   };
 
-  const saveShift = () => saveEntries({ ...entries, [key]: draft });
+  const saveShift = (timerData = null) => {
+    const previousTimer = entries[key]?.__timer || null;
+    const nextTimer = timerData || previousTimer;
+    const entry = { ...draft };
+    if (nextTimer) entry.__timer = nextTimer;
+    saveEntries({ ...entries, [key]: entry });
+  };
 
   const deleteShift = (targetKey = key) => {
     const next = { ...entries };
@@ -35,7 +45,7 @@ export function useShiftly() {
     const next = value instanceof Date ? new Date(value) : new Date(`${value}T12:00:00`);
     if (Number.isNaN(next.getTime())) return;
     setSelectedDate(next);
-    setDraft(entries[dateKey(next)] || emptyQuantities());
+    setDraft(quantitiesFromEntry(entries[dateKey(next)] || emptyQuantities()));
   };
 
   const changeDate = (days) => {
