@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Home, Minus, Plus, RotateCcw, Save, Settings, Target, Trash2, WalletCards } from 'lucide-react';
+import { BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Home, Minus, Plus, RotateCcw, Save, Settings, Target, Trash2, TrendingUp, UserRound, WalletCards, Zap } from 'lucide-react';
 import { departments, emptyQuantities } from './data/departments';
 import { calculateShift, dateKey, money, totalCartons } from './utils/calculations';
 import { useShiftly } from './hooks/useShiftly';
@@ -19,10 +19,18 @@ export default function App() {
   const cartons = totalCartons(data.draft);
   const saved = Boolean(data.entries[data.key]);
   const goalProgress = Math.min(100, data.goal ? (data.stats.monthTotal / data.goal) * 100 : 0);
+  const remainingGoal = Math.max(0, data.goal - data.stats.monthTotal);
+  const averageCartonValue = cartons ? dayTotal / cartons : 0;
 
   const showToast = (message) => {
     setToast(message);
     window.setTimeout(() => setToast(''), 2200);
+  };
+
+  const goTo = (nextView) => {
+    setView(nextView);
+    navigator.vibrate?.(12);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const save = () => {
@@ -49,19 +57,25 @@ export default function App() {
 
   const openDate = (date) => {
     data.selectDate(date);
-    setView('today');
+    goTo('today');
   };
 
   return <div className="shell">
     <main className="phone-app">
       <header className="topbar">
-        <div className="logo"><span>S</span><div><b>SHIFTLY</b><small>личный учёт смен</small></div></div>
-        <div className="avatar">M</div>
+        <button className="logo logo-button" onClick={() => goTo('today')} aria-label="Перейти на главный экран">
+          <span className="logo-mark">S</span>
+          <div><b>SHIFTLY</b><small>личный учёт смен</small></div>
+        </button>
+        <button className="avatar avatar-button" onClick={() => goTo('settings')} aria-label="Открыть профиль">
+          <UserRound aria-hidden="true"/>
+          <span>M</span>
+        </button>
       </header>
 
       {view === 'today' && <>
         <section className="hero-card animate-in">
-          <div className="hero-top"><span>{saved ? 'Сохранённая смена' : 'Выбранный день'}</span><span className="status-dot">{saved ? 'Сохранено' : 'Черновик'}</span></div>
+          <div className="hero-top"><span>{saved ? 'Сохранённая смена' : 'Выбранный день'}</span><span className={`status-dot ${saved ? 'is-saved' : 'is-empty'}`}>{saved ? 'Сохранено' : cartons ? 'Не сохранено' : 'Новая смена'}</span></div>
           <strong className="hero-money">{money(dayTotal)}</strong>
           <div className="hero-meta"><span>{cartons} картонов</span><span>{data.selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</span></div>
           <div className="date-row"><button onClick={() => data.changeDate(-1)}><ChevronLeft/></button><span>{data.selectedDate.toLocaleDateString('ru-RU')}</span><button onClick={() => data.changeDate(1)}><ChevronRight/></button></div>
@@ -69,10 +83,16 @@ export default function App() {
 
         <section className="mini-stats animate-in delay-1"><article><small>Неделя</small><b>{money(data.stats.weekTotal)}</b></article><article><small>Месяц</small><b>{money(data.stats.monthTotal)}</b></article></section>
 
+        <section className="insight-card animate-in delay-1">
+          <div className="insight-icon"><Zap/></div>
+          <div className="insight-copy"><small>Полезно сейчас</small><b>{cartons ? `${money(averageCartonValue)} в среднем за картон` : 'Начни с добавления картонов'}</b><span>{remainingGoal > 0 ? `До цели месяца осталось ${money(remainingGoal)}` : 'Месячная цель выполнена'}</span></div>
+          <button onClick={() => goTo(cartons ? 'stats' : 'calendar')} aria-label="Открыть подробности"><ChevronRight/></button>
+        </section>
+
         <section className="goal-card animate-in delay-2">
           <div><span><Target size={18}/> Цель месяца</span><b>{money(data.goal)}</b></div>
           <div className="progress"><i style={{ width: `${goalProgress}%` }}/></div>
-          <small>{goalProgress.toFixed(0)}% выполнено · осталось {money(Math.max(0, data.goal - data.stats.monthTotal))}</small>
+          <small>{goalProgress.toFixed(0)}% выполнено · осталось {money(remainingGoal)}</small>
         </section>
 
         <section className="department-list">
@@ -98,7 +118,7 @@ export default function App() {
       {view === 'settings' && <SettingsScreen data={data} showToast={showToast}/>} 
     </main>
 
-    <nav className="bottom-nav">{tabs.map(([id, Icon, label]) => <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}><Icon/><span>{label}</span></button>)}</nav>
+    <nav className="bottom-nav">{tabs.map(([id, Icon, label]) => <button key={id} className={view === id ? 'active' : ''} onClick={() => goTo(id)}><Icon/><span>{label}</span></button>)}</nav>
     {toast && <div className="toast"><Check size={17}/>{toast}</div>}
   </div>;
 }
@@ -143,7 +163,7 @@ function CalendarScreen({ data, onOpenDate, onDelete }) {
 function StatsScreen({ data }) {
   const bars = useMemo(() => data.stats.monthItems.slice().sort((a, b) => a[0].localeCompare(b[0])).map(([date, entry]) => ({ date: date.slice(8), value: calculateShift(entry, data.rates) })), [data.stats.monthItems, data.rates]);
   const max = Math.max(...bars.map((bar) => bar.value), 1);
-  return <section className="screen animate-in"><div className="screen-heading"><div><h1>Статистика</h1><p>Результаты за выбранный месяц</p></div></div><div className="summary-grid"><article><WalletCards/><small>Всего</small><b>{money(data.stats.monthTotal)}</b></article><article><BarChart3/><small>Средний день</small><b>{money(data.stats.average)}</b></article></div><div className="chart-card"><h2>Заработок по дням</h2><div className="chart-bars">{bars.map((bar) => <div key={bar.date}><i style={{ height: `${Math.max(8, bar.value / max * 100)}%` }}/><small>{bar.date}</small></div>)}</div></div><div className="best-card"><span>Лучший день</span><b>{data.stats.best ? `${data.stats.best.date} · ${money(data.stats.best.value)}` : 'Пока нет данных'}</b></div></section>;
+  return <section className="screen animate-in"><div className="screen-heading"><div><h1>Статистика</h1><p>Результаты за выбранный месяц</p></div></div><div className="summary-grid"><article><WalletCards/><small>Всего</small><b>{money(data.stats.monthTotal)}</b></article><article><TrendingUp/><small>Средний день</small><b>{money(data.stats.average)}</b></article></div><div className="chart-card"><h2>Заработок по дням</h2><div className="chart-bars">{bars.map((bar) => <div key={bar.date}><i style={{ height: `${Math.max(8, bar.value / max * 100)}%` }}/><small>{bar.date}</small></div>)}</div></div><div className="best-card"><span>Лучший день</span><b>{data.stats.best ? `${data.stats.best.date} · ${money(data.stats.best.value)}` : 'Пока нет данных'}</b></div></section>;
 }
 
 function SettingsScreen({ data, showToast }) {
@@ -167,7 +187,7 @@ function SettingsScreen({ data, showToast }) {
   };
 
   return <section className="screen animate-in profile-screen">
-    <div className="screen-heading"><div><h1>Профиль</h1><p>Личная цель и ставки этого устройства</p></div></div>
+    <div className="profile-hero"><div className="profile-avatar"><UserRound/></div><div><h1>Мой профиль</h1><p>Личные настройки этого устройства</p></div></div>
     <div className="privacy-note"><b>Личные данные</b><span>Изменения относятся только к этому браузеру и не влияют на других пользователей.</span></div>
     <label className="setting-card"><span>Цель на месяц</span><div><input type="number" value={goalDraft} onChange={(e) => { setGoalDraft(e.target.value); setDirty(true); }}/><em>zł</em></div></label>
     <h2 className="settings-title">Ставки за картон</h2>
