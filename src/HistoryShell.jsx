@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, ChevronLeft, Clock3, Coffee, History, Package } from 'lucide-react';
+import { CalendarClock, ChevronLeft, Clock3, Coffee, History, Package, Plus } from 'lucide-react';
 import { defaultRates } from './data/departments';
 import { calculateShift, money, totalCartons } from './utils/calculations';
 
@@ -90,6 +90,15 @@ export default function HistoryShell({ children }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const addDay = () => {
+    setOpen(false);
+    navigator.vibrate?.(12);
+    window.setTimeout(() => {
+      const calendarButton = document.querySelector('.dashboard-bottom-nav button:nth-child(2)');
+      calendarButton?.click();
+    }, 0);
+  };
+
   return <>
     {children}
 
@@ -121,6 +130,7 @@ export default function HistoryShell({ children }) {
 
         <div className="history-list-title">
           <div><h2>Смены списком</h2><p>{history.filtered.length} сохранённых дней</p></div>
+          <button className="history-add-day" onClick={addDay}><Plus/>Добавить день</button>
         </div>
 
         <div className="history-shift-list">
