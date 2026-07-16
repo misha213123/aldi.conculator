@@ -19,6 +19,13 @@ const formatDuration = (milliseconds = 0) => {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
 };
 
+const localDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const startOfWeek = (date) => {
   const result = new Date(date);
   result.setHours(0, 0, 0, 0);
@@ -35,7 +42,7 @@ const endOfWeek = (date) => {
 
 export default function HistoryShell({ children }) {
   const [open, setOpen] = useState(false);
-  const [period, setPeriod] = useState('week');
+  const [period, setPeriod] = useState('day');
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
@@ -52,6 +59,7 @@ export default function HistoryShell({ children }) {
     const entries = read('shiftly-entries', read('aldi-entries', {}));
     const rates = read('shiftly-rates', read('aldi-rates', defaultRates()));
     const now = new Date();
+    const todayKey = localDateKey(now);
     const weekStart = startOfWeek(now);
     const weekEnd = endOfWeek(now);
 
@@ -67,6 +75,7 @@ export default function HistoryShell({ children }) {
 
     const filtered = all.filter((item) => {
       const value = new Date(`${item.date}T12:00:00`);
+      if (period === 'day') return item.date === todayKey;
       if (period === 'week') return value >= weekStart && value <= weekEnd;
       return value.getFullYear() === now.getFullYear() && value.getMonth() === now.getMonth();
     });
@@ -99,6 +108,8 @@ export default function HistoryShell({ children }) {
     }, 0);
   };
 
+  const periodLabel = period === 'day' ? 'За сегодня' : period === 'week' ? 'За эту неделю' : 'За этот месяц';
+
   return <>
     {children}
 
@@ -111,13 +122,14 @@ export default function HistoryShell({ children }) {
         </header>
 
         <div className="history-period-switch">
+          <button className={period === 'day' ? 'active' : ''} onClick={() => setPeriod('day')}>День</button>
           <button className={period === 'week' ? 'active' : ''} onClick={() => setPeriod('week')}>Неделя</button>
           <button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Месяц</button>
         </div>
 
         <section className="history-summary-card">
           <div className="history-summary-main">
-            <small>{period === 'week' ? 'За эту неделю' : 'За этот месяц'}</small>
+            <small>{periodLabel}</small>
             <strong>{history.totals.cartons}</strong>
             <span>картонов · {money(history.totals.earnings)}</span>
           </div>
