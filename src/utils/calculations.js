@@ -13,7 +13,10 @@ export function calculateShift(quantities = {}, rates = {}) {
 }
 
 export function totalCartons(quantities = {}) {
-  return Object.values(quantities).reduce((sum, value) => sum + Number(value || 0), 0);
+  return departments.reduce(
+    (sum, department) => sum + Number(quantities[department.id] || 0),
+    0,
+  );
 }
 
 export function getWeekRange(date) {
