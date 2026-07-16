@@ -12,6 +12,14 @@ const tabs = [
   ['settings', Settings, 'Профиль'],
 ];
 
+const formatStoredDuration = (milliseconds = 0) => {
+  const totalSeconds = Math.max(0, Math.floor(Number(milliseconds || 0) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
+};
+
 export default function App() {
   const data = useShiftly();
   const timer = useWorkTimer();
@@ -42,9 +50,17 @@ export default function App() {
   };
 
   const save = () => {
-    data.saveShift();
+    data.saveShift({
+      workMs: timer.workMs,
+      breakMs: timer.breakMs,
+      totalMs: timer.totalMs,
+      startedAt: timer.startedAt,
+      finishedAt: timer.finishedAt,
+      status: timer.status,
+      savedAt: Date.now(),
+    });
     navigator.vibrate?.(25);
-    showToast(saved ? 'Смена обновлена' : 'Смена сохранена');
+    showToast(saved ? 'Смена и время обновлены' : 'Смена и время сохранены');
   };
 
   const removeShift = (key = data.key) => {
@@ -76,7 +92,7 @@ export default function App() {
 
   const finishTimer = () => {
     if (!window.confirm('Завершить текущую смену? После этого таймер остановится.')) return;
-    timerAction(timer.finishShift, 'Смена завершена');
+    timerAction(timer.finishShift, 'Смена завершена. Нажми «Сохранить», чтобы записать время в историю');
   };
 
   const resetTimer = () => {
@@ -202,6 +218,7 @@ function CalendarScreen({ data, onOpenDate, onDelete }) {
   const cells = [...Array(firstWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, index) => index + 1)];
   while (cells.length % 7) cells.push(null);
   const entry = data.entries[picked];
+  const savedTimer = entry?.__timer;
 
   const moveMonth = (offset) => {
     const next = new Date(year, month + offset, 1);
@@ -221,8 +238,20 @@ function CalendarScreen({ data, onOpenDate, onDelete }) {
         return <button key={key} className={`${savedEntry ? 'has-entry' : ''} ${picked === key ? 'selected' : ''} ${key === dateKey(new Date()) ? 'today' : ''}`} onClick={() => setPicked(key)}><span>{day}</span>{savedEntry && <i>{money(calculateShift(savedEntry, data.rates))}</i>}</button>;
       })}</div>
     </div>
+
     <div className="day-preview animate-in">
-      <div><small>{new Date(`${picked}T12:00:00`).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</small><strong>{entry ? money(calculateShift(entry, data.rates)) : 'Нет смены'}</strong><span>{entry ? `${totalCartons(entry)} картонов` : 'Можно добавить данные за этот день'}</span></div>
+      <div>
+        <small>{new Date(`${picked}T12:00:00`).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</small>
+        <strong>{entry ? money(calculateShift(entry, data.rates)) : 'Нет смены'}</strong>
+        <span>{entry ? `${totalCartons(entry)} картонов` : 'Можно добавить данные за этот день'}</span>
+      </div>
+
+      {entry && <div className="history-time-grid">
+        <article><span>Комплектовал</span><b>{savedTimer ? formatStoredDuration(savedTimer.workMs) : 'Не записано'}</b></article>
+        <article><span>Перекуры</span><b>{savedTimer ? formatStoredDuration(savedTimer.breakMs) : 'Не записано'}</b></article>
+        <article><span>Всего на смене</span><b>{savedTimer ? formatStoredDuration(savedTimer.totalMs) : 'Не записано'}</b></article>
+      </div>}
+
       <div className="preview-actions"><button className="edit-day" onClick={() => onOpenDate(picked)}>{entry ? 'Открыть и изменить' : 'Добавить смену'}</button>{entry && <button className="delete-day" onClick={() => onDelete(picked)}><Trash2/>Удалить</button>}</div>
     </div>
   </section>;
