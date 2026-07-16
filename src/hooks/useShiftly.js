@@ -18,9 +18,15 @@ export function useShiftly() {
   const saveShift = () => saveEntries({ ...entries, [key]: draft });
   const deleteShift = (targetKey = key) => { const next = { ...entries }; delete next[targetKey]; saveEntries(next); };
   const updateQuantity = (id, value) => setDraft((current) => ({ ...current, [id]: Math.max(0, Number(value) || 0) }));
+  const selectDate = (value) => {
+    const next = value instanceof Date ? new Date(value) : new Date(`${value}T12:00:00`);
+    if (Number.isNaN(next.getTime())) return;
+    setSelectedDate(next);
+    setDraft(entries[dateKey(next)] || emptyQuantities());
+  };
   const changeDate = (days) => {
     const next = new Date(selectedDate); next.setDate(next.getDate() + days);
-    setSelectedDate(next); setDraft(entries[dateKey(next)] || emptyQuantities());
+    selectDate(next);
   };
   const setRate = (id, value) => {
     const next = { ...rates, [id]: Math.max(0, Number(value) || 0) };
@@ -39,5 +45,5 @@ export function useShiftly() {
     return { monthItems, monthTotal, weekTotal, best, average: monthItems.length ? monthTotal / monthItems.length : 0 };
   }, [entries, rates, selectedDate]);
 
-  return { selectedDate, key, rates, entries, draft, goal, stats, setDraft, updateQuantity, changeDate, saveShift, deleteShift, setRate, setGoal };
+  return { selectedDate, key, rates, entries, draft, goal, stats, setDraft, updateQuantity, selectDate, changeDate, saveShift, deleteShift, setRate, setGoal };
 }
