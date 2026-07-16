@@ -5,6 +5,7 @@ import './styles.css';
 import './calendar.css';
 import './mobile-v2.css';
 import './theme-v2.css';
+import './interactions-v3.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
