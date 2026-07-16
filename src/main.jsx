@@ -7,6 +7,7 @@ import './mobile-v2.css';
 import './theme-v2.css';
 import './interactions-v3.css';
 import './bold-colors.css';
+import './dashboard-v5.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
