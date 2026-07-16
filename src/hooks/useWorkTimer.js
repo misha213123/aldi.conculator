@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'shiftly-work-timer';
-const emptyTimer = { status: 'idle', startedAt: null, segmentStartedAt: null, workMs: 0, breakMs: 0, finishedAt: null };
+
+const createEmptyTimer = () => ({
+  status: 'idle',
+  startedAt: null,
+  segmentStartedAt: null,
+  workMs: 0,
+  breakMs: 0,
+  finishedAt: null,
+});
 
 const readTimer = () => {
-  try { return { ...emptyTimer, ...(JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}) }; }
-  catch { return emptyTimer; }
+  try {
+    return { ...createEmptyTimer(), ...(JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}) };
+  } catch {
+    return createEmptyTimer();
+  }
 };
 
 const formatDuration = (milliseconds) => {
@@ -35,30 +46,57 @@ export function useWorkTimer() {
     const workMs = timer.workMs + (timer.status === 'working' ? currentSegment : 0);
     const breakMs = timer.breakMs + (timer.status === 'break' ? currentSegment : 0);
     const totalMs = timer.startedAt ? Math.max(0, (timer.finishedAt || now) - timer.startedAt) : 0;
-    return { workMs, breakMs, totalMs, work: formatDuration(workMs), break: formatDuration(breakMs), total: formatDuration(totalMs) };
+    return {
+      workMs,
+      breakMs,
+      totalMs,
+      work: formatDuration(workMs),
+      break: formatDuration(breakMs),
+      total: formatDuration(totalMs),
+    };
   }, [timer, now]);
 
   const startShift = () => {
     const timestamp = Date.now();
     setNow(timestamp);
-    setTimer({ status: 'working', startedAt: timestamp, segmentStartedAt: timestamp, workMs: 0, breakMs: 0, finishedAt: null });
+    setTimer({
+      status: 'working',
+      startedAt: timestamp,
+      segmentStartedAt: timestamp,
+      workMs: 0,
+      breakMs: 0,
+      finishedAt: null,
+    });
   };
 
   const startBreak = () => {
     if (timer.status !== 'working') return;
     const timestamp = Date.now();
-    setTimer((current) => ({ ...current, status: 'break', workMs: current.workMs + (timestamp - current.segmentStartedAt), segmentStartedAt: timestamp }));
+    setNow(timestamp);
+    setTimer((current) => ({
+      ...current,
+      status: 'break',
+      workMs: current.workMs + (timestamp - current.segmentStartedAt),
+      segmentStartedAt: timestamp,
+    }));
   };
 
   const resumeWork = () => {
     if (timer.status !== 'break') return;
     const timestamp = Date.now();
-    setTimer((current) => ({ ...current, status: 'working', breakMs: current.breakMs + (timestamp - current.segmentStartedAt), segmentStartedAt: timestamp }));
+    setNow(timestamp);
+    setTimer((current) => ({
+      ...current,
+      status: 'working',
+      breakMs: current.breakMs + (timestamp - current.segmentStartedAt),
+      segmentStartedAt: timestamp,
+    }));
   };
 
   const finishShift = () => {
     if (timer.status !== 'working' && timer.status !== 'break') return;
     const timestamp = Date.now();
+    setNow(timestamp);
     setTimer((current) => ({
       ...current,
       status: 'finished',
@@ -69,7 +107,13 @@ export function useWorkTimer() {
     }));
   };
 
-  const resetTimer = () => setTimer(emptyTimer);
+  const resetTimer = () => {
+    const timestamp = Date.now();
+    const clearedTimer = createEmptyTimer();
+    setNow(timestamp);
+    setTimer(clearedTimer);
+    localStorage.removeItem(STORAGE_KEY);
+  };
 
   return { ...timer, ...totals, startShift, startBreak, resumeWork, finishShift, resetTimer };
 }
