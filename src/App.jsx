@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, Home, Minus, Plus, Save, Settings, Sparkles, Target, Trash2, WalletCards } from 'lucide-react';
 import { departments, emptyQuantities } from './data/departments';
-import { calculateShift, money, totalCartons } from './utils/calculations';
+import { calculateShift, dateKey, money, totalCartons } from './utils/calculations';
 import { useShiftly } from './hooks/useShiftly';
 
 const tabs = [
@@ -21,6 +21,7 @@ export default function App() {
 
   const showToast = (message) => { setToast(message); window.setTimeout(() => setToast(''), 2200); };
   const save = () => { data.saveShift(); navigator.vibrate?.(35); showToast('Смена сохранена'); };
+  const openDate = (date) => { data.selectDate(date); setView('today'); };
 
   return <div className="shell">
     <main className="phone-app">
@@ -31,7 +32,7 @@ export default function App() {
 
       {view === 'today' && <>
         <section className="hero-card animate-in">
-          <div className="hero-top"><span>Заработок сегодня</span><Sparkles size={19}/></div>
+          <div className="hero-top"><span>Заработок за выбранный день</span><Sparkles size={19}/></div>
           <strong className="hero-money">{money(dayTotal)}</strong>
           <div className="hero-meta"><span>{cartons} картонов</span><span>{data.selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</span></div>
           <div className="date-row"><button onClick={() => data.changeDate(-1)}><ChevronLeft/></button><span>{data.selectedDate.toLocaleDateString('ru-RU')}</span><button onClick={() => data.changeDate(1)}><ChevronRight/></button></div>
@@ -49,7 +50,7 @@ export default function App() {
         </section>
 
         <section className="department-list">
-          <div className="section-title"><div><h2>Картоны по отделам</h2><p>Нажимай + или введи число</p></div><span>{cartons}</span></div>
+          <div className="section-title"><div><h2>Картоны по отделам</h2><p>Можно заполнить любой прошлый день</p></div><span>{cartons}</span></div>
           {departments.map((department, index) => {
             const qty = data.draft[department.id] || 0;
             return <article className="department-card animate-in" style={{ animationDelay: `${index * 35}ms` }} key={department.id}>
@@ -62,7 +63,7 @@ export default function App() {
         <div className="save-dock"><button className="clear" onClick={() => data.setDraft(emptyQuantities())}><Trash2/></button><button className="save" onClick={save}><Save/>Сохранить смену <b>{money(dayTotal)}</b></button></div>
       </>}
 
-      {view === 'calendar' && <CalendarScreen data={data}/>} 
+      {view === 'calendar' && <CalendarScreen data={data} onOpenDate={openDate}/>} 
       {view === 'stats' && <StatsScreen data={data}/>} 
       {view === 'settings' && <SettingsScreen data={data}/>} 
     </main>
@@ -72,15 +73,43 @@ export default function App() {
   </div>;
 }
 
-function CalendarScreen({ data }) {
-  const items = Object.entries(data.entries).sort((a, b) => b[0].localeCompare(a[0]));
-  return <section className="screen animate-in"><div className="screen-heading"><h1>Календарь смен</h1><p>Все сохранённые рабочие дни</p></div><div className="history-list">{items.map(([date, entry]) => <article key={date}><div><b>{new Date(`${date}T12:00:00`).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })}</b><small>{totalCartons(entry)} картонов</small></div><strong>{money(calculateShift(entry, data.rates))}</strong></article>)}{!items.length && <div className="empty">Пока нет сохранённых смен</div>}</div></section>;
+function CalendarScreen({ data, onOpenDate }) {
+  const [cursor, setCursor] = useState(() => new Date(data.selectedDate.getFullYear(), data.selectedDate.getMonth(), 1));
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [...Array(firstWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, index) => index + 1)];
+  while (cells.length % 7) cells.push(null);
+
+  const moveMonth = (offset) => setCursor(new Date(year, month + offset, 1));
+  const today = dateKey(new Date());
+
+  return <section className="screen animate-in">
+    <div className="screen-heading"><div><h1>Календарь смен</h1><p>Выбери даже день 2–3 недели назад</p></div></div>
+    <div className="calendar-card">
+      <div className="calendar-head"><button onClick={() => moveMonth(-1)}><ChevronLeft/></button><b>{cursor.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</b><button onClick={() => moveMonth(1)}><ChevronRight/></button></div>
+      <div className="weekdays">{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map((day) => <span key={day}>{day}</span>)}</div>
+      <div className="calendar-grid">{cells.map((day, index) => {
+        if (!day) return <span className="calendar-empty" key={`empty-${index}`}/>;
+        const key = dateKey(new Date(year, month, day));
+        const entry = data.entries[key];
+        const selected = key === data.key;
+        const isToday = key === today;
+        return <button key={key} className={`${entry ? 'has-entry' : ''} ${selected ? 'selected' : ''} ${isToday ? 'today' : ''}`} onClick={() => onOpenDate(key)}>
+          <span>{day}</span>
+          {entry && <i>{money(calculateShift(entry, data.rates))}</i>}
+        </button>;
+      })}</div>
+    </div>
+    <p className="calendar-hint">Нажми на дату → внеси картоны → сохрани смену. Если запись уже есть, она откроется для редактирования.</p>
+  </section>;
 }
 
 function StatsScreen({ data }) {
   const bars = useMemo(() => data.stats.monthItems.slice().sort((a, b) => a[0].localeCompare(b[0])).map(([date, entry]) => ({ date: date.slice(8), value: calculateShift(entry, data.rates) })), [data.stats.monthItems, data.rates]);
   const max = Math.max(...bars.map((bar) => bar.value), 1);
-  return <section className="screen animate-in"><div className="screen-heading"><h1>Статистика</h1><p>Твой прогресс за текущий месяц</p></div><div className="summary-grid"><article><WalletCards/><small>Всего</small><b>{money(data.stats.monthTotal)}</b></article><article><BarChart3/><small>Средний день</small><b>{money(data.stats.average)}</b></article></div><div className="chart-card"><h2>Заработок по дням</h2><div className="chart-bars">{bars.map((bar) => <div key={bar.date}><i style={{ height: `${Math.max(8, bar.value / max * 100)}%` }}/><small>{bar.date}</small></div>)}</div></div><div className="best-card"><span>🏆 Лучший день</span><b>{data.stats.best ? `${data.stats.best.date} · ${money(data.stats.best.value)}` : 'Пока нет данных'}</b></div></section>;
+  return <section className="screen animate-in"><div className="screen-heading"><h1>Статистика</h1><p>Твой прогресс за выбранный месяц</p></div><div className="summary-grid"><article><WalletCards/><small>Всего</small><b>{money(data.stats.monthTotal)}</b></article><article><BarChart3/><small>Средний день</small><b>{money(data.stats.average)}</b></article></div><div className="chart-card"><h2>Заработок по дням</h2><div className="chart-bars">{bars.map((bar) => <div key={bar.date}><i style={{ height: `${Math.max(8, bar.value / max * 100)}%` }}/><small>{bar.date}</small></div>)}</div></div><div className="best-card"><span>🏆 Лучший день</span><b>{data.stats.best ? `${data.stats.best.date} · ${money(data.stats.best.value)}` : 'Пока нет данных'}</b></div></section>;
 }
 
 function SettingsScreen({ data }) {
