@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Home, Minus, Plus, RotateCcw, Save, Settings, Target, Trash2, TrendingUp, UserRound, WalletCards, Zap } from 'lucide-react';
+import { BarChart3, Box, CalendarDays, Check, ChevronLeft, ChevronRight, Home, Minus, PackagePlus, Plus, RotateCcw, Save, Settings, Target, Trash2, TrendingUp, UserRound, WalletCards, Zap } from 'lucide-react';
 import { departments, emptyQuantities } from './data/departments';
 import { calculateShift, dateKey, money, totalCartons } from './utils/calculations';
 import { useShiftly } from './hooks/useShiftly';
@@ -33,6 +33,11 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const scrollToDepartments = () => {
+    document.getElementById('departments')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    navigator.vibrate?.(12);
+  };
+
   const save = () => {
     data.saveShift();
     navigator.vibrate?.(25);
@@ -60,43 +65,61 @@ export default function App() {
     goTo('today');
   };
 
-  return <div className="shell">
-    <main className="phone-app">
-      <header className="topbar">
-        <button className="logo logo-button" onClick={() => goTo('today')} aria-label="Перейти на главный экран">
+  return <div className="shell dashboard-shell">
+    <main className="phone-app dashboard-app">
+      <header className="topbar dashboard-topbar">
+        <button className="logo logo-button dashboard-logo" onClick={() => goTo('today')} aria-label="Перейти на главный экран">
           <span className="logo-mark">S</span>
           <div><b>SHIFTLY</b><small>личный учёт смен</small></div>
         </button>
-        <button className="avatar avatar-button" onClick={() => goTo('settings')} aria-label="Открыть профиль">
-          <UserRound aria-hidden="true"/>
-          <span>M</span>
+        <button className="avatar avatar-button dashboard-avatar" onClick={() => goTo('settings')} aria-label="Открыть профиль">
+          <UserRound aria-hidden="true"/><span>M</span>
         </button>
       </header>
 
       {view === 'today' && <>
-        <section className="hero-card animate-in">
-          <div className="hero-top"><span>{saved ? 'Сохранённая смена' : 'Выбранный день'}</span><span className={`status-dot ${saved ? 'is-saved' : 'is-empty'}`}>{saved ? 'Сохранено' : cartons ? 'Не сохранено' : 'Новая смена'}</span></div>
-          <strong className="hero-money">{money(dayTotal)}</strong>
-          <div className="hero-meta"><span>{cartons} картонов</span><span>{data.selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</span></div>
-          <div className="date-row"><button onClick={() => data.changeDate(-1)}><ChevronLeft/></button><span>{data.selectedDate.toLocaleDateString('ru-RU')}</span><button onClick={() => data.changeDate(1)}><ChevronRight/></button></div>
+        <section className="dashboard-main-card animate-in">
+          <div className="dashboard-card-head">
+            <div><Zap/><span>{data.selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</span></div>
+            <button onClick={() => goTo('calendar')}>Все смены <ChevronRight/></button>
+          </div>
+
+          <div className="dashboard-earnings-row">
+            <div className="dashboard-total"><strong>{money(dayTotal)}</strong><span>Заработок</span></div>
+            <div className="dashboard-kpi"><PackagePlus/><b>{cartons}</b><span>Картонов</span></div>
+            <div className="dashboard-kpi"><WalletCards/><b>{money(averageCartonValue)}</b><span>За картон</span></div>
+          </div>
+
+          <div className="dashboard-date-control">
+            <button onClick={() => data.changeDate(-1)}><ChevronLeft/></button>
+            <div><small>{saved ? 'Смена сохранена' : cartons ? 'Есть несохранённые данные' : 'Смена не заполнена'}</small><b>{data.selectedDate.toLocaleDateString('ru-RU')}</b></div>
+            <button onClick={() => data.changeDate(1)}><ChevronRight/></button>
+          </div>
+
+          <button className="dashboard-add-button" onClick={scrollToDepartments}><Plus/>Добавить картоны</button>
         </section>
 
-        <section className="mini-stats animate-in delay-1"><article><small>Неделя</small><b>{money(data.stats.weekTotal)}</b></article><article><small>Месяц</small><b>{money(data.stats.monthTotal)}</b></article></section>
-
-        <section className="insight-card animate-in delay-1">
-          <div className="insight-icon"><Zap/></div>
-          <div className="insight-copy"><small>Полезно сейчас</small><b>{cartons ? `${money(averageCartonValue)} в среднем за картон` : 'Начни с добавления картонов'}</b><span>{remainingGoal > 0 ? `До цели месяца осталось ${money(remainingGoal)}` : 'Месячная цель выполнена'}</span></div>
-          <button onClick={() => goTo(cartons ? 'stats' : 'calendar')} aria-label="Открыть подробности"><ChevronRight/></button>
+        <section className="quick-actions-card animate-in delay-1">
+          <div className="dashboard-section-title"><Zap/><h2>Быстрые действия</h2></div>
+          <div className="quick-actions-grid">
+            <button className="quick-action qa-blue" onClick={scrollToDepartments}><Box/><span>Добавить<br/>картон</span></button>
+            <button className="quick-action qa-cyan" onClick={() => goTo('calendar')}><CalendarDays/><span>Прошлая<br/>смена</span></button>
+            <button className="quick-action qa-violet" onClick={() => goTo('settings')}><Target/><span>Цель<br/>месяца</span></button>
+            <button className="quick-action qa-orange" onClick={() => goTo('stats')}><BarChart3/><span>Аналитика</span></button>
+          </div>
         </section>
 
-        <section className="goal-card animate-in delay-2">
-          <div><span><Target size={18}/> Цель месяца</span><b>{money(data.goal)}</b></div>
-          <div className="progress"><i style={{ width: `${goalProgress}%` }}/></div>
+        <section className="summary-card animate-in delay-2">
+          <h2>Сводка</h2>
+          <div className="summary-line"><span><CalendarDays/>Неделя</span><b>{money(data.stats.weekTotal)}</b></div>
+          <div className="summary-line"><span><CalendarDays/>Месяц</span><b>{money(data.stats.monthTotal)}</b></div>
+          <div className="summary-line"><span><Target/>Цель месяца</span><b>{money(data.goal)}</b></div>
+          <div className="summary-progress"><i style={{ width: `${goalProgress}%` }}/></div>
           <small>{goalProgress.toFixed(0)}% выполнено · осталось {money(remainingGoal)}</small>
         </section>
 
-        <section className="department-list">
-          <div className="section-title"><div><h2>Картоны по отделам</h2><p>Ввод сохраняется только после подтверждения</p></div><span>{cartons}</span></div>
+        <section className="department-list dashboard-departments" id="departments">
+          <div className="section-title"><div><h2>Картоны по отделам</h2><p>Укажи количество и сохрани смену</p></div><span>{cartons}</span></div>
           {departments.map((department, index) => {
             const qty = data.draft[department.id] || 0;
             return <article className="department-card animate-in" style={{ animationDelay: `${index * 30}ms` }} key={department.id}>
@@ -118,7 +141,7 @@ export default function App() {
       {view === 'settings' && <SettingsScreen data={data} showToast={showToast}/>} 
     </main>
 
-    <nav className="bottom-nav">{tabs.map(([id, Icon, label]) => <button key={id} className={view === id ? 'active' : ''} onClick={() => goTo(id)}><Icon/><span>{label}</span></button>)}</nav>
+    <nav className="bottom-nav dashboard-bottom-nav">{tabs.map(([id, Icon, label]) => <button key={id} className={view === id ? 'active' : ''} onClick={() => goTo(id)}><Icon/><span>{label}</span></button>)}</nav>
     {toast && <div className="toast"><Check size={17}/>{toast}</div>}
   </div>;
 }
@@ -152,11 +175,7 @@ function CalendarScreen({ data, onOpenDate, onDelete }) {
         return <button key={key} className={`${savedEntry ? 'has-entry' : ''} ${picked === key ? 'selected' : ''} ${key === dateKey(new Date()) ? 'today' : ''}`} onClick={() => setPicked(key)}><span>{day}</span>{savedEntry && <i>{money(calculateShift(savedEntry, data.rates))}</i>}</button>;
       })}</div>
     </div>
-
-    <div className="day-preview animate-in">
-      <div><small>{new Date(`${picked}T12:00:00`).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</small><strong>{entry ? money(calculateShift(entry, data.rates)) : 'Нет смены'}</strong><span>{entry ? `${totalCartons(entry)} картонов` : 'Можно добавить данные за этот день'}</span></div>
-      <div className="preview-actions"><button className="edit-day" onClick={() => onOpenDate(picked)}>{entry ? 'Открыть и изменить' : 'Добавить смену'}</button>{entry && <button className="delete-day" onClick={() => onDelete(picked)}><Trash2/>Удалить</button>}</div>
-    </div>
+    <div className="day-preview animate-in"><div><small>{new Date(`${picked}T12:00:00`).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</small><strong>{entry ? money(calculateShift(entry, data.rates)) : 'Нет смены'}</strong><span>{entry ? `${totalCartons(entry)} картонов` : 'Можно добавить данные за этот день'}</span></div><div className="preview-actions"><button className="edit-day" onClick={() => onOpenDate(picked)}>{entry ? 'Открыть и изменить' : 'Добавить смену'}</button>{entry && <button className="delete-day" onClick={() => onDelete(picked)}><Trash2/>Удалить</button>}</div></div>
   </section>;
 }
 
