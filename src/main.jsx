@@ -9,6 +9,7 @@ import './interactions-v3.css';
 import './bold-colors.css';
 import './dashboard-v5.css';
 import './work-timer.css';
+import './history-time.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
