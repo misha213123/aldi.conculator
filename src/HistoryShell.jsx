@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { CalendarClock, ChevronLeft, Clock3, Coffee, History, Package, WalletCards } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { CalendarClock, ChevronLeft, Clock3, Coffee, History, Package } from 'lucide-react';
 import { defaultRates } from './data/departments';
 import { calculateShift, money, totalCartons } from './utils/calculations';
 
@@ -38,6 +38,16 @@ export default function HistoryShell({ children }) {
   const [period, setPeriod] = useState('week');
   const [revision, setRevision] = useState(0);
 
+  useEffect(() => {
+    const closeHistoryOnNavigation = (event) => {
+      const navigationTarget = event.target.closest('.dashboard-bottom-nav button, .dashboard-logo, .dashboard-avatar');
+      if (navigationTarget) setOpen(false);
+    };
+
+    document.addEventListener('click', closeHistoryOnNavigation, true);
+    return () => document.removeEventListener('click', closeHistoryOnNavigation, true);
+  }, []);
+
   const history = useMemo(() => {
     const entries = read('shiftly-entries', read('aldi-entries', {}));
     const rates = read('shiftly-rates', read('aldi-rates', defaultRates()));
@@ -70,7 +80,7 @@ export default function HistoryShell({ children }) {
       return result;
     }, { cartons: 0, earnings: 0, workMs: 0, breakMs: 0, totalMs: 0 });
 
-    return { all, filtered, totals };
+    return { filtered, totals };
   }, [period, revision]);
 
   const openHistory = () => {
