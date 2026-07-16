@@ -11,6 +11,7 @@ export function useShiftly() {
   const [rates, setRatesState] = useState(() => read('shiftly-rates', read('aldi-rates', defaultRates())));
   const [entries, setEntries] = useState(() => read('shiftly-entries', read('aldi-entries', {})));
   const [goal, setGoalState] = useState(() => read('shiftly-goal', 7000));
+  const [hourlyRate, setHourlyRateState] = useState(() => read('shiftly-hourly-rate', 35));
   const key = dateKey(selectedDate);
   const [draft, setDraft] = useState(() => entries[key] || emptyQuantities());
 
@@ -33,6 +34,7 @@ export function useShiftly() {
     setRatesState(next); localStorage.setItem('shiftly-rates', JSON.stringify(next));
   };
   const setGoal = (value) => { const next = Math.max(0, Number(value) || 0); setGoalState(next); localStorage.setItem('shiftly-goal', JSON.stringify(next)); };
+  const setHourlyRate = (value) => { const next = Math.max(0, Number(value) || 0); setHourlyRateState(next); localStorage.setItem('shiftly-hourly-rate', JSON.stringify(next)); };
 
   const stats = useMemo(() => {
     const month = monthKey(selectedDate);
@@ -45,5 +47,5 @@ export function useShiftly() {
     return { monthItems, monthTotal, weekTotal, best, average: monthItems.length ? monthTotal / monthItems.length : 0 };
   }, [entries, rates, selectedDate]);
 
-  return { selectedDate, key, rates, entries, draft, goal, stats, setDraft, updateQuantity, selectDate, changeDate, saveShift, deleteShift, setRate, setGoal };
+  return { selectedDate, key, rates, entries, draft, goal, hourlyRate, stats, setDraft, updateQuantity, selectDate, changeDate, saveShift, deleteShift, setRate, setGoal, setHourlyRate };
 }
