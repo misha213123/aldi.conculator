@@ -55,9 +55,11 @@ export function useShiftly() {
   };
 
   const setRate = (id, value) => {
-    const next = { ...rates, [id]: Math.max(0, Number(value) || 0) };
-    setRatesState(next);
-    localStorage.setItem('shiftly-rates', JSON.stringify(next));
+    setRatesState((current) => {
+      const next = { ...current, [id]: Math.max(0, Number(value) || 0) };
+      localStorage.setItem('shiftly-rates', JSON.stringify(next));
+      return next;
+    });
   };
 
   const setGoal = (value) => {
