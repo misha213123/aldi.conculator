@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'shiftly-work-timer';
+const ENTRIES_KEY = 'shiftly-entries';
 
 const createEmptyTimer = () => ({
   status: 'idle',
@@ -27,9 +28,47 @@ const formatDuration = (milliseconds) => {
   return [hours, minutes, rest].map((value) => String(value).padStart(2, '0')).join(':');
 };
 
+const pad = (value) => String(value).padStart(2, '0');
+const todayKey = () => {
+  const date = new Date();
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const archiveTimer = (snapshot) => {
+  if (!snapshot?.startedAt || Number(snapshot.totalMs || 0) <= 0) return;
+
+  try {
+    const entries = JSON.parse(localStorage.getItem(ENTRIES_KEY) || '{}');
+    const key = todayKey();
+    const currentEntry = entries[key] || {};
+
+    entries[key] = {
+      ...currentEntry,
+      __timer: {
+        workMs: Number(snapshot.workMs || 0),
+        breakMs: Number(snapshot.breakMs || 0),
+        totalMs: Number(snapshot.totalMs || 0),
+        startedAt: snapshot.startedAt,
+        finishedAt: snapshot.finishedAt || Date.now(),
+        status: 'finished',
+        savedAt: Date.now(),
+      },
+    };
+
+    localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+  } catch {
+    // Не мешаем работе таймера, если браузер временно не дал записать историю.
+  }
+};
+
 export function useWorkTimer() {
   const [timer, setTimer] = useState(readTimer);
   const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    localStorage.removeItem('shiftly-hourly-rate');
+    localStorage.removeItem('aldi-hourly-rate');
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(timer));
@@ -96,19 +135,40 @@ export function useWorkTimer() {
   const finishShift = () => {
     if (timer.status !== 'working' && timer.status !== 'break') return;
     const timestamp = Date.now();
+
     setNow(timestamp);
-    setTimer((current) => ({
-      ...current,
-      status: 'finished',
-      workMs: current.workMs + (current.status === 'working' ? timestamp - current.segmentStartedAt : 0),
-      breakMs: current.breakMs + (current.status === 'break' ? timestamp - current.segmentStartedAt : 0),
-      segmentStartedAt: null,
-      finishedAt: timestamp,
-    }));
+    setTimer((current) => {
+      const finishedTimer = {
+        ...current,
+        status: 'finished',
+        workMs: current.workMs + (current.status === 'working' ? timestamp - current.segmentStartedAt : 0),
+        breakMs: current.breakMs + (current.status === 'break' ? timestamp - current.segmentStartedAt : 0),
+        segmentStartedAt: null,
+        finishedAt: timestamp,
+      };
+
+      archiveTimer({
+        ...finishedTimer,
+        totalMs: finishedTimer.startedAt ? timestamp - finishedTimer.startedAt : 0,
+      });
+
+      return finishedTimer;
+    });
   };
 
   const resetTimer = () => {
     const timestamp = Date.now();
+
+    if (timer.startedAt && totals.totalMs > 0) {
+      archiveTimer({
+        workMs: totals.workMs,
+        breakMs: totals.breakMs,
+        totalMs: totals.totalMs,
+        startedAt: timer.startedAt,
+        finishedAt: timer.finishedAt || timestamp,
+      });
+    }
+
     const clearedTimer = createEmptyTimer();
     setNow(timestamp);
     setTimer(clearedTimer);
