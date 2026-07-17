@@ -74,9 +74,13 @@ export default function App() {
   };
 
   const clearDraft = () => {
-    if (cartons > 0 && !window.confirm('Очистить все введённые значения за выбранный день?')) return;
+    const hasTimerData = timer.status !== 'idle' || timer.totalMs > 0;
+    const shouldConfirm = cartons > 0 || hasTimerData;
+    if (shouldConfirm && !window.confirm('Очистить картоны и текущий таймер? Полное время смены останется в истории.')) return;
+    if (hasTimerData) timer.resetTimer();
     data.setDraft(emptyQuantities());
-    showToast('Поля очищены');
+    navigator.vibrate?.(20);
+    showToast('Картоны и таймер очищены');
   };
 
   const openDate = (date) => {
@@ -96,7 +100,7 @@ export default function App() {
   };
 
   const resetTimer = () => {
-    if (!window.confirm('Очистить таймер смены и всю статистику времени?')) return;
+    if (!window.confirm('Очистить таймер смены? Полное время останется в истории.')) return;
     timerAction(timer.resetTimer, 'Таймер очищен');
   };
 
@@ -190,7 +194,7 @@ export default function App() {
         </section>
 
         <div className={`save-dock ${saved ? 'three-actions' : ''}`}>
-          <button className="clear" onClick={clearDraft} aria-label="Очистить поля"><RotateCcw/></button>
+          <button className="clear" onClick={clearDraft} aria-label="Очистить картоны и таймер"><RotateCcw/></button>
           {saved && <button className="delete" onClick={() => removeShift()}><Trash2/><span>Удалить</span></button>}
           <button className="save" onClick={save}><Save/><span>{saved ? 'Обновить' : 'Сохранить'}</span><b>{money(dayTotal)}</b></button>
         </div>
