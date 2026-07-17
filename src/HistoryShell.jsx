@@ -163,7 +163,15 @@ export default function HistoryShell({ children }) {
       </div>
     </section>}
 
-    <button className={`history-bottom-button ${open ? 'active' : ''}`} onClick={open ? () => setOpen(false) : openHistory}>
+    <button
+      className={`history-bottom-button ${open ? 'active' : ''}`}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openHistory();
+      }}
+    >
       <History/><span>История</span>
     </button>
   </>;
