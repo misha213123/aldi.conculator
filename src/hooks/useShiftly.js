@@ -12,13 +12,17 @@ const quantitiesFromEntry = (entry = {}) => Object.fromEntries(
   departments.map((department) => [department.id, Number(entry[department.id] || 0)]),
 );
 
+const isEmptyDraft = (value = {}) => departments.every(
+  (department) => Number(value[department.id] || 0) === 0,
+);
+
 export function useShiftly() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [rates, setRatesState] = useState(() => read('shiftly-rates', read('aldi-rates', defaultRates())));
   const [entries, setEntries] = useState(() => read('shiftly-entries', read('aldi-entries', {})));
   const [goal, setGoalState] = useState(() => read('shiftly-goal', 7000));
   const key = dateKey(selectedDate);
-  const [draft, setDraft] = useState(() => quantitiesFromEntry(entries[key] || emptyQuantities()));
+  const [draft, setDraftState] = useState(() => quantitiesFromEntry(entries[key] || emptyQuantities()));
 
   useEffect(() => {
     localStorage.setItem(SELECTED_DATE_KEY, key);
@@ -54,8 +58,20 @@ export function useShiftly() {
     saveEntries(next);
   };
 
+  const setDraft = (value) => {
+    setDraftState((current) => {
+      const next = typeof value === 'function' ? value(current) : value;
+      if (isEmptyDraft(next) && entries[key]) {
+        const updatedEntries = { ...entries };
+        delete updatedEntries[key];
+        saveEntries(updatedEntries);
+      }
+      return next;
+    });
+  };
+
   const updateQuantity = (id, value) => {
-    setDraft((current) => ({ ...current, [id]: Math.max(0, Number(value) || 0) }));
+    setDraftState((current) => ({ ...current, [id]: Math.max(0, Number(value) || 0) }));
   };
 
   const selectDate = (value) => {
@@ -64,7 +80,7 @@ export function useShiftly() {
     const nextKey = dateKey(next);
     localStorage.setItem(SELECTED_DATE_KEY, nextKey);
     setSelectedDate(next);
-    setDraft(quantitiesFromEntry(entries[nextKey] || emptyQuantities()));
+    setDraftState(quantitiesFromEntry(entries[nextKey] || emptyQuantities()));
   };
 
   const changeDate = (days) => {
