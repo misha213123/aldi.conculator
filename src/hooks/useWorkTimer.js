@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'shiftly-work-timer';
 const ENTRIES_KEY = 'shiftly-entries';
+const SELECTED_DATE_KEY = 'shiftly-selected-date-key';
 
 const createEmptyTimer = () => ({
   status: 'idle',
@@ -34,12 +35,15 @@ const todayKey = () => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
+const hasCartons = (entry = {}) => Object.entries(entry).some(([key, value]) => key !== '__timer' && Number(value || 0) > 0);
+
 const archiveTimer = (snapshot) => {
   if (!snapshot?.startedAt || Number(snapshot.totalMs || 0) <= 0) return;
 
   try {
     const entries = JSON.parse(localStorage.getItem(ENTRIES_KEY) || '{}');
-    const key = todayKey();
+    const selectedKey = localStorage.getItem(SELECTED_DATE_KEY);
+    const key = selectedKey || todayKey();
     const currentEntry = entries[key] || {};
 
     entries[key] = {
@@ -55,7 +59,13 @@ const archiveTimer = (snapshot) => {
       },
     };
 
+    const wrongTodayKey = todayKey();
+    if (wrongTodayKey !== key && entries[wrongTodayKey]?.__timer && !hasCartons(entries[wrongTodayKey])) {
+      delete entries[wrongTodayKey];
+    }
+
     localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+    window.dispatchEvent(new CustomEvent('shiftly-entries-updated', { detail: entries }));
   } catch {
     // Не мешаем работе таймера, если браузер временно не дал записать историю.
   }
@@ -69,21 +79,6 @@ export function useWorkTimer() {
     localStorage.removeItem('shiftly-hourly-rate');
     localStorage.removeItem('aldi-hourly-rate');
   }, []);
-
-  // Старые завершённые таймеры переносим в историю и сразу очищаем главный экран.
-  useEffect(() => {
-    if (timer.status !== 'finished') return;
-
-    const totalMs = timer.startedAt
-      ? Math.max(0, (timer.finishedAt || Date.now()) - timer.startedAt)
-      : Number(timer.workMs || 0) + Number(timer.breakMs || 0);
-
-    archiveTimer({ ...timer, totalMs });
-    const clearedTimer = createEmptyTimer();
-    setNow(Date.now());
-    setTimer(clearedTimer);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(clearedTimer));
-  }, [timer]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(timer));
@@ -151,22 +146,23 @@ export function useWorkTimer() {
     if (timer.status !== 'working' && timer.status !== 'break') return;
     const timestamp = Date.now();
 
-    const workMs = timer.workMs + (timer.status === 'working' ? timestamp - timer.segmentStartedAt : 0);
-    const breakMs = timer.breakMs + (timer.status === 'break' ? timestamp - timer.segmentStartedAt : 0);
-    const totalMs = timer.startedAt ? Math.max(0, timestamp - timer.startedAt) : workMs + breakMs;
+    const finishedTimer = {
+      ...timer,
+      status: 'finished',
+      workMs: timer.workMs + (timer.status === 'working' ? timestamp - timer.segmentStartedAt : 0),
+      breakMs: timer.breakMs + (timer.status === 'break' ? timestamp - timer.segmentStartedAt : 0),
+      segmentStartedAt: null,
+      finishedAt: timestamp,
+    };
 
     archiveTimer({
-      workMs,
-      breakMs,
-      totalMs,
-      startedAt: timer.startedAt,
-      finishedAt: timestamp,
+      ...finishedTimer,
+      totalMs: finishedTimer.startedAt ? timestamp - finishedTimer.startedAt : 0,
     });
 
-    const clearedTimer = createEmptyTimer();
     setNow(timestamp);
-    setTimer(clearedTimer);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(clearedTimer));
+    setTimer(createEmptyTimer());
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   const resetTimer = () => {
@@ -182,10 +178,9 @@ export function useWorkTimer() {
       });
     }
 
-    const clearedTimer = createEmptyTimer();
     setNow(timestamp);
-    setTimer(clearedTimer);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(clearedTimer));
+    setTimer(createEmptyTimer());
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   return { ...timer, ...totals, startShift, startBreak, resumeWork, finishShift, resetTimer };
