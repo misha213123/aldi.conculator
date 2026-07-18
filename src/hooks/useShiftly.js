@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { defaultRates, emptyQuantities, departments } from '../data/departments';
 import { calculateShift, dateKey, getWeekRange, monthKey } from '../utils/calculations';
+
+const SELECTED_DATE_KEY = 'shiftly-selected-date-key';
 
 const read = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -18,9 +20,24 @@ export function useShiftly() {
   const key = dateKey(selectedDate);
   const [draft, setDraft] = useState(() => quantitiesFromEntry(entries[key] || emptyQuantities()));
 
+  useEffect(() => {
+    localStorage.setItem(SELECTED_DATE_KEY, key);
+  }, [key]);
+
+  useEffect(() => {
+    const syncEntries = (event) => {
+      const next = event.detail || read('shiftly-entries', {});
+      setEntries(next);
+    };
+
+    window.addEventListener('shiftly-entries-updated', syncEntries);
+    return () => window.removeEventListener('shiftly-entries-updated', syncEntries);
+  }, []);
+
   const saveEntries = (next) => {
     setEntries(next);
     localStorage.setItem('shiftly-entries', JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent('shiftly-entries-updated', { detail: next }));
   };
 
   const saveShift = (timerData = null) => {
@@ -44,8 +61,10 @@ export function useShiftly() {
   const selectDate = (value) => {
     const next = value instanceof Date ? new Date(value) : new Date(`${value}T12:00:00`);
     if (Number.isNaN(next.getTime())) return;
+    const nextKey = dateKey(next);
+    localStorage.setItem(SELECTED_DATE_KEY, nextKey);
     setSelectedDate(next);
-    setDraft(quantitiesFromEntry(entries[dateKey(next)] || emptyQuantities()));
+    setDraft(quantitiesFromEntry(entries[nextKey] || emptyQuantities()));
   };
 
   const changeDate = (days) => {
