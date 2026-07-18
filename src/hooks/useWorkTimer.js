@@ -70,6 +70,21 @@ export function useWorkTimer() {
     localStorage.removeItem('aldi-hourly-rate');
   }, []);
 
+  // Старые завершённые таймеры переносим в историю и сразу очищаем главный экран.
+  useEffect(() => {
+    if (timer.status !== 'finished') return;
+
+    const totalMs = timer.startedAt
+      ? Math.max(0, (timer.finishedAt || Date.now()) - timer.startedAt)
+      : Number(timer.workMs || 0) + Number(timer.breakMs || 0);
+
+    archiveTimer({ ...timer, totalMs });
+    const clearedTimer = createEmptyTimer();
+    setNow(Date.now());
+    setTimer(clearedTimer);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(clearedTimer));
+  }, [timer]);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(timer));
   }, [timer]);
@@ -136,24 +151,22 @@ export function useWorkTimer() {
     if (timer.status !== 'working' && timer.status !== 'break') return;
     const timestamp = Date.now();
 
-    setNow(timestamp);
-    setTimer((current) => {
-      const finishedTimer = {
-        ...current,
-        status: 'finished',
-        workMs: current.workMs + (current.status === 'working' ? timestamp - current.segmentStartedAt : 0),
-        breakMs: current.breakMs + (current.status === 'break' ? timestamp - current.segmentStartedAt : 0),
-        segmentStartedAt: null,
-        finishedAt: timestamp,
-      };
+    const workMs = timer.workMs + (timer.status === 'working' ? timestamp - timer.segmentStartedAt : 0);
+    const breakMs = timer.breakMs + (timer.status === 'break' ? timestamp - timer.segmentStartedAt : 0);
+    const totalMs = timer.startedAt ? Math.max(0, timestamp - timer.startedAt) : workMs + breakMs;
 
-      archiveTimer({
-        ...finishedTimer,
-        totalMs: finishedTimer.startedAt ? timestamp - finishedTimer.startedAt : 0,
-      });
-
-      return finishedTimer;
+    archiveTimer({
+      workMs,
+      breakMs,
+      totalMs,
+      startedAt: timer.startedAt,
+      finishedAt: timestamp,
     });
+
+    const clearedTimer = createEmptyTimer();
+    setNow(timestamp);
+    setTimer(clearedTimer);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(clearedTimer));
   };
 
   const resetTimer = () => {
@@ -172,7 +185,7 @@ export function useWorkTimer() {
     const clearedTimer = createEmptyTimer();
     setNow(timestamp);
     setTimer(clearedTimer);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(clearedTimer));
   };
 
   return { ...timer, ...totals, startShift, startBreak, resumeWork, finishShift, resetTimer };
